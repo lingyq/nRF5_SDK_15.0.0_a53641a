@@ -1,0 +1,114 @@
+#!/bin/bash
+GREEN='\e[0;32m'
+RED='\e[1;31m'
+YELLOW='\e[1;33m'
+END='\e[0m'
+RED()
+{
+    echo -e  "${RED}$1${END}"
+}
+
+GREEN()
+{
+    echo -e  "${GREEN}$1${END}"
+}
+
+YELLOW()
+{
+    echo -e  "${YELLOW}$1${END}"
+}
+
+TIME=`date +%Y-%m-%d-%H-%M`
+BRANCH=`git branch | awk '{if(match($1,"\*")){print $2}}'`
+ROOT=$PWD/..
+DEST_COMMIT=$ROOT/Patch/$BRANCH/Commit-$1
+LOG_COMMIT=$ROOT/Patch/$BRANCH/Commit-$1/Readme.txt
+PATCH_MODE=2
+DIFF_COMMIT=1
+MODIFIED_TAG=Mod\:
+DELETED_TAG=Del\:
+ADDED_TAG=Add\:
+
+
+if [ ! -e .git ];then
+    RED "Error exec path!!!"
+    exit 1
+fi
+
+GREEN "Checking the code, please wait..."
+fetch_list()
+{
+    if [ ! -z $2 ];then
+        separation="========================================================================================"
+        echo $separation >> $2
+        echo $Patch Time : $TIME >> $2
+        echo $Git Branch : $BRANCH >> $2
+        git log -1
+        git log -1 >> $2
+    fi
+
+    echo
+    echo
+
+    for j in $subfiles
+    do
+        FILE=${j:1}
+        TAG=${j:0:1}
+        dir=${FILE%/*}
+        if [ "$TAG" == "M" ];then
+            TAG=$MODIFIED_TAG
+            GREEN  "$TAG  $FILE"
+        elif [ "$TAG" == "D" ];then
+            TAG=$DELETED_TAG
+            RED "$TAG  $FILE"
+        elif [ "$TAG" == "A" ];then
+            TAG=$ADDED_TAG
+            YELLOW "$TAG  $FILE"
+        fi
+
+        if [ -e  $FILE ];then
+            if [ -d  $dir ];then
+                mkdir -p $1/$dir
+            fi
+        fi
+
+        if [ -f  $FILE ];then
+            cp -rfp $FILE $1/$FILE
+        elif [ -d  $FILE ];then
+            target=${FILE%/*}
+            target=${target%/*}
+            cp  -rfp $FILE $1/$target
+        fi
+
+        if [ ! -z $2 ];then
+            echo "$TAG  $FILE" >> $2
+        fi
+    done
+}
+
+if [ $# != 0 ];then
+    if [ "$DIFF_COMMIT" == 1 ];then
+        if [ ! -z $2 ];then
+            DEST_COMMIT=$ROOT/Patch/$BRANCH/Commit-$2
+            LOG_COMMIT=$ROOT/Patch/$BRANCH/Commit-$2/Readme.txt
+        fi
+
+        if [ "$PATCH_MODE" == 2 ];then
+            mkdir -p $DEST_COMMIT/after
+            subfiles=`git diff --name-status $1^ $1 | awk '{
+                                                            if ($1 ==" M" || $1 =="M") {print "M"$2}
+                                                            else if ($1 ==" D" || $1 =="D") {print "D"$2}
+                                                            else if ($1 ==" A" || $1 =="A" || $1 =="??" ) {print "A"$2}
+            }'`
+            git checkout $1
+            fetch_list "$DEST_COMMIT"/after $LOG_COMMIT
+            git checkout HEAD^
+            mkdir -p $DEST_COMMIT/before
+            fetch_list "$DEST_COMMIT"/before
+            git checkout $BRANCH
+        fi
+    fi
+else
+    RED "Error $# == 0!!!"
+    exit 1
+fi
