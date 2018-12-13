@@ -57,6 +57,9 @@
 #define PROV_DEBUG_MODE 0
 #endif
 
+extern void start_unprovisioned_notify_timer(void);
+extern void stop_unprovisioned_notify_timer(void);
+extern void start_provisioned_fail_notify_timer(void);
 /****************** Call-back function declarations ******************/
 static void prov_provisionee_pkt_in(prov_bearer_t * p_bearer, const uint8_t * p_buffer, uint16_t length);
 static void prov_provisionee_cb_ack_received(prov_bearer_t * p_bearer);
@@ -555,6 +558,7 @@ static void prov_provisionee_cb_link_established(prov_bearer_t * p_bearer)
         }
     }
     
+    start_unprovisioned_notify_timer();
     p_ctx->state = NRF_MESH_PROV_STATE_INVITE;
     nrf_mesh_prov_evt_t app_event;
     app_event.type = NRF_MESH_PROV_EVT_LINK_ESTABLISHED;
@@ -568,6 +572,7 @@ static void prov_provisionee_cb_link_closed(prov_bearer_t * p_bearer, nrf_mesh_p
     {
         complete_provisioning(p_ctx);
     }
+    stop_unprovisioned_notify_timer();
     p_ctx->state = NRF_MESH_PROV_STATE_IDLE;
     nrf_mesh_prov_evt_t app_event;
     app_event.type = NRF_MESH_PROV_EVT_LINK_CLOSED;
