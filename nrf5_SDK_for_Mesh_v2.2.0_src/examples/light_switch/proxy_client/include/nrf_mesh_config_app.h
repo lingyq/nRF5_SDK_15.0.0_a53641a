@@ -106,7 +106,7 @@
  * @warning If the application is to support multiple _instances_ of the _same_ model, they cannot
  * belong in the same element and a separate element is needed for the new instance.
  */
-#define ACCESS_ELEMENT_COUNT (1 + CLIENT_MODEL_INSTANCE_COUNT) /* One element per Generic OnOff client instance */
+#define ACCESS_ELEMENT_COUNT (2) /* One element per Generic OnOff client instance */
 
 /**
  * The number of allocated subscription lists for the application.

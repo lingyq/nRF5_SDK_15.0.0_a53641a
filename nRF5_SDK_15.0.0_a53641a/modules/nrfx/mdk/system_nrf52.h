@@ -29,7 +29,7 @@ extern "C" {
 
 #include <stdint.h>
 
-
+#define CONFIG_NFCT_PINS_AS_GPIOS
 extern uint32_t SystemCoreClock;    /*!< System Clock Frequency (Core Clock)  */
 
 /**
