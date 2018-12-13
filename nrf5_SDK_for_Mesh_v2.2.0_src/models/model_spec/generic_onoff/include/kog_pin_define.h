@@ -1,14 +1,14 @@
 #ifndef KOG_PIN_DEFINE_H
 #define KOG_PIN_DEFINE_H
 
-//Holyiot_145716
-#define LED1_R  28
+//Holyiot_150971
+#define LED1_R  26
 #define LED1_G  27
-#define LED1_B  26
+#define LED1_B  28
 
 #define LED2_R  11
-#define LED2_G  13
-#define LED2_B  12
+#define LED2_G  12
+#define LED2_B  13
 
 #define RELAY_A 4
 #define RELAY_B 5
