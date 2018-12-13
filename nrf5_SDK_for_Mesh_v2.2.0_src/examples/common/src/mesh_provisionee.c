@@ -52,6 +52,7 @@
 #include "nrf_mesh_gatt.h"
 #include "proxy.h"
 #include "mesh_opt_gatt.h"
+#include "kog_pin_define.h"
 
 #define PROV_BEARERS                        (NRF_MESH_PROV_BEARER_GATT | \
                                              NRF_MESH_PROV_BEARER_ADV)
@@ -73,6 +74,7 @@ static uint8_t                         m_public_key[NRF_MESH_PROV_PUBKEY_SIZE];
 static uint8_t                         m_private_key[NRF_MESH_PROV_PRIVKEY_SIZE];
 static bool                            m_device_provisioned;
 
+extern void start_provisioned_fail_notify_timer(void);
 
 #if MESH_FEATURE_GATT
 static void sd_state_evt_handler(nrf_sdh_state_evt_t state, void * p_context)
@@ -170,6 +172,9 @@ static void prov_evt_handler(const nrf_mesh_prov_evt_t * p_evt)
         case NRF_MESH_PROV_EVT_LINK_CLOSED:
             if (!m_device_provisioned)
             {
+                //provisioning fail
+                NRF_GPIO->OUTCLR = ALL_LED_R;
+                start_provisioned_fail_notify_timer(); //开启3秒后关闭红色灯的定时器
                 (void) provisionee_start();
             }
             else
