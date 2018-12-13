@@ -79,10 +79,14 @@
 #include "nrf_mesh_config_examples.h"
 #include "light_switch_example_common.h"
 #include "app_onoff.h"
+#include "kog_pin_define.h"
 
-#define ONOFF_SERVER_0_LED          (BSP_LED_0)
+#define ONOFF_SERVER_0_LED          (RELAY_A)
+#define ONOFF_SERVER_1_LED          (RELAY_B)
+#define ONOFF_SERVER_2_LED          (RELAY_C)
+#define ONOFF_SERVER_3_LED          (RELAY_D)
 
-#define DEVICE_NAME                     "nRF5x Mesh Light"
+#define DEVICE_NAME                     "SW01_xxx"
 #define MIN_CONN_INTERVAL               MSEC_TO_UNITS(150,  UNIT_1_25_MS)           /**< Minimum acceptable connection interval. */
 #define MAX_CONN_INTERVAL               MSEC_TO_UNITS(250,  UNIT_1_25_MS)           /**< Maximum acceptable connection interval. */
 #define SLAVE_LATENCY                   0                                           /**< Slave latency. */
@@ -93,19 +97,35 @@
 
 static bool m_device_provisioned;
 
+static uint8_t flash_flag = 1;    //flash flag
 static void gap_params_init(void);
 static void conn_params_init(void);
+#define LED_FLASH_INTERVAL_TIME (500) //用于提示未入网设备的          led 闪烁间隔
+#define LED_TURN_ON_TIME (3000) //绿灯和红灯点亮的时间
+#define KEY_LONG_PRESS_POLL_TIME   (20)
+APP_TIMER_DEF(unprovisioned_notify_timer);    //
+APP_TIMER_DEF(provisioned_complete_notify_timer); //绿灯亮3秒，然后灭绿灯
+APP_TIMER_DEF(provisioned_fail_notify_timer);//红灯亮3秒，然后灭红灯
+APP_TIMER_DEF(button_long_press_timer); //检测按键长按
 
 /*************************************************************************************************/
 static void app_onoff_server_set_cb(const app_onoff_server_t * p_server, bool onoff);
 static void app_onoff_server_get_cb(const app_onoff_server_t * p_server, bool * p_present_onoff);
 
+static void app_onoff_server_set_cb1(const app_onoff_server_t * p_server, bool onoff);
+static void app_onoff_server_get_cb1(const app_onoff_server_t * p_server, bool * p_present_onoff);
 /* Generic OnOff server structure definition and initialization */
 APP_ONOFF_SERVER_DEF(m_onoff_server_0,
                      APP_CONFIG_FORCE_SEGMENTATION,
                      APP_CONFIG_MIC_SIZE,
                      app_onoff_server_set_cb,
                      app_onoff_server_get_cb)
+/* Generic OnOff server structure definition and initialization */
+APP_ONOFF_SERVER_DEF(m_onoff_server_1,
+                     APP_CONFIG_FORCE_SEGMENTATION,
+                     APP_CONFIG_MIC_SIZE,
+                     app_onoff_server_set_cb1,
+                     app_onoff_server_get_cb1)
 
 /* Callback for updating the hardware state */
 static void app_onoff_server_set_cb(const app_onoff_server_t * p_server, bool onoff)
@@ -125,10 +145,29 @@ static void app_onoff_server_get_cb(const app_onoff_server_t * p_server, bool * 
     *p_present_onoff = hal_led_pin_get(ONOFF_SERVER_0_LED);
 }
 
+/* Callback for updating the hardware state */
+static void app_onoff_server_set_cb1(const app_onoff_server_t * p_server, bool onoff)
+{
+    /* Resolve the server instance here if required, this example uses only 1 instance. */
+
+    __LOG(LOG_SRC_APP, LOG_LEVEL_INFO, "Setting GPIO value: %d\n", onoff)
+
+    hal_led_pin_set(ONOFF_SERVER_1_LED, onoff);
+}
+
+/* Callback for reading the hardware state */
+static void app_onoff_server_get_cb1(const app_onoff_server_t * p_server, bool * p_present_onoff)
+{
+    /* Resolve the server instance here if required, this example uses only 1 instance. */
+
+    *p_present_onoff = hal_led_pin_get(ONOFF_SERVER_1_LED);
+}
 static void app_model_init(void)
 {
     /* Instantiate onoff server on element index 0 */
     ERROR_CHECK(app_onoff_init(&m_onoff_server_0, 0));
+    /* Instantiate onoff server on element index 1 */
+    ERROR_CHECK(app_onoff_init(&m_onoff_server_1, 1));
 }
 
 /*************************************************************************************************/
@@ -143,7 +182,7 @@ NRF_SDH_SOC_OBSERVER(mesh_observer, NRF_SDH_BLE_STACK_OBSERVER_PRIO, on_sd_evt, 
 static void node_reset(void)
 {
     __LOG(LOG_SRC_APP, LOG_LEVEL_INFO, "----- Node reset  -----\n");
-    hal_led_blink_ms(LEDS_MASK, LED_BLINK_INTERVAL_MS, LED_BLINK_CNT_RESET);
+    //hal_led_blink_ms(LEDS_MASK, LED_BLINK_INTERVAL_MS, LED_BLINK_CNT_RESET);
     /* This function may return if there are ongoing flash operations. */
     mesh_stack_device_reset();
 }
@@ -167,27 +206,44 @@ static void button_event_handler(uint32_t button_number)
         case 0:
         {
             __LOG(LOG_SRC_APP, LOG_LEVEL_INFO, "User action \n");
-            hal_led_pin_set(ONOFF_SERVER_0_LED, !hal_led_pin_get(ONOFF_SERVER_0_LED));
-            app_onoff_status_publish(&m_onoff_server_0);
+            app_timer_start(button_long_press_timer, APP_TIMER_TICKS(KEY_LONG_PRESS_POLL_TIME), NULL);
+            //hal_led_pin_set(ONOFF_SERVER_0_LED, !hal_led_pin_get(ONOFF_SERVER_0_LED));
+            //app_onoff_status_publish(&m_onoff_server_0);
+            break;
+        }
+        case 1:
+        {
+            hal_led_pin_set(ONOFF_SERVER_1_LED, !hal_led_pin_get(ONOFF_SERVER_1_LED));
+            app_onoff_status_publish(&m_onoff_server_1);
+            break;
+        }
+        case 2:
+        {
+            hal_led_pin_set(ONOFF_SERVER_2_LED, !hal_led_pin_get(ONOFF_SERVER_2_LED));
+            break;
+        }
+        case 3:
+        {
+            hal_led_pin_set(ONOFF_SERVER_3_LED, !hal_led_pin_get(ONOFF_SERVER_3_LED));
             break;
         }
 
         /* Initiate node reset */
-        case 3:
-        {
+        //case 3:
+        //{
             /* Clear all the states to reset the node. */
-            if (mesh_stack_is_device_provisioned())
-            {
-                (void) proxy_stop();
-                mesh_stack_config_clear();
-                node_reset();
-            }
-            else
-            {
-                __LOG(LOG_SRC_APP, LOG_LEVEL_INFO, "The device is unprovisioned. Resetting has no effect.\n");
-            }
-            break;
-        }
+        //    if (mesh_stack_is_device_provisioned())
+        //    {
+        //        (void) proxy_stop();
+        //        mesh_stack_config_clear();
+        //        node_reset();
+        //    }
+        //    else
+        //    {
+        //        __LOG(LOG_SRC_APP, LOG_LEVEL_INFO, "The device is unprovisioned. Resetting has no effect.\n");
+        //    }
+        //    break;
+        //}
 
         default:
             break;
@@ -223,6 +279,7 @@ static void conn_params_error_handler(uint32_t nrf_error)
     APP_ERROR_HANDLER(nrf_error);
 }
 
+void start_provisioned_complete_notify_timer(void);
 static void provisioning_complete_cb(void)
 {
     __LOG(LOG_SRC_APP, LOG_LEVEL_INFO, "Successfully provisioned\n");
@@ -235,8 +292,12 @@ static void provisioning_complete_cb(void)
     dsm_local_unicast_addresses_get(&node_address);
     __LOG(LOG_SRC_APP, LOG_LEVEL_INFO, "Node Address: 0x%04x \n", node_address.address_start);
 
-    hal_led_mask_set(LEDS_MASK, false);
-    hal_led_blink_ms(LEDS_MASK, LED_BLINK_INTERVAL_MS, LED_BLINK_CNT_PROV);
+    NRF_GPIO->OUTCLR = ALL_LED_G;
+    //开启定时器
+    start_provisioned_complete_notify_timer();
+
+    //hal_led_mask_set(LEDS_MASK, false);
+    //hal_led_blink_ms(LEDS_MASK, LED_BLINK_INTERVAL_MS, LED_BLINK_CNT_PROV);
 }
 
 static void models_init_cb(void)
@@ -304,6 +365,92 @@ static void conn_params_init(void)
     APP_ERROR_CHECK(err_code);
 }
 
+void unprovisioned_notify_timer_handler(void * p_context)
+{
+    //蓝色的   LEDs 都需要进行闪烁
+    if(flash_flag)
+    {
+        flash_flag = 0;
+        //NRF_GPIO->OUTSET = (1 << LED1_B) | (1 << LED2_B) | (1 << LED3_B) | (1 << LED4_B) | (1 << LED5_B) | (1 << LED6_B) ;
+        NRF_GPIO->OUTCLR = ALL_LED_R;
+    }
+    else
+    {
+        flash_flag = 1;
+        //NRF_GPIO->OUTCLR = (1 << LED1_B) | (1 << LED2_B) | (1 << LED3_B) | (1 << LED4_B) | (1 << LED5_B) | (1 << LED6_B) ;
+        NRF_GPIO->OUTSET = ALL_LED_R;
+    }
+    
+}
+
+void provisioned_complete_notify_timer_handler(void * p_context)
+{
+    //NRF_GPIO->OUTCLR = (1 << LED1_G) | (1 << LED2_G) | (1 << LED3_G) | (1 << LED4_G) | (1 << LED5_G) | (1 << LED6_G) ;  //关掉绿色灯
+    NRF_GPIO->OUTSET = ALL_LED_G;  
+}
+
+void provisioned_fail_notify_timer_handler(void * p_context)
+{
+    //NRF_GPIO->OUTCLR = (1 << LED1_R) | (1 << LED2_R) | (1 << LED3_R) | (1 << LED4_R) | (1 << LED5_R) | (1 << LED6_R) ;  //关掉红色灯
+    NRF_GPIO->OUTSET = ALL_LED_R;
+}
+
+void start_unprovisioned_notify_timer(void)
+{
+    app_timer_start(unprovisioned_notify_timer, APP_TIMER_TICKS(LED_FLASH_INTERVAL_TIME), NULL);
+}
+
+void start_provisioned_complete_notify_timer(void)
+{
+    app_timer_start(provisioned_complete_notify_timer, APP_TIMER_TICKS(LED_TURN_ON_TIME), NULL); 
+}
+
+void start_provisioned_fail_notify_timer(void)
+{
+    app_timer_start(provisioned_fail_notify_timer, APP_TIMER_TICKS(LED_TURN_ON_TIME), NULL); 
+}
+
+void stop_unprovisioned_notify_timer(void)
+{
+    app_timer_stop(unprovisioned_notify_timer);
+    //NRF_GPIO->OUTCLR = (1 << LED1_B) | (1 << LED2_B) | (1 << LED3_B) | (1 << LED4_B) | (1 << LED5_B) | (1 << LED6_B) ;  //关掉蓝色的灯
+    NRF_GPIO->OUTSET = ALL_LED_R;
+}
+
+void button_long_press_handler(void * p_context)
+{
+    static uint8_t counter_times = 0;
+    if(hal_led_pin_read(BSP_BUTTON_0) == 0) //处于低电平，表示还是按着
+    {
+        counter_times++; //20ms / 次
+        if(counter_times >= 250) // > 5S
+        {
+            app_timer_stop(button_long_press_timer);
+            
+            (void) proxy_stop();
+            mesh_stack_config_clear();
+            node_reset();
+        }
+        /*
+        else
+        {
+            app_timer_start(button_long_press_timer, APP_TIMER_TICKS(KEY_LONG_PRESS_POLL_TIME), NULL);
+        }*/
+        
+    }
+    else
+    {
+        __LOG(LOG_SRC_APP, LOG_LEVEL_INFO, "----- Key Release  -----\n");
+        app_timer_stop(button_long_press_timer);
+        counter_times = 0;
+
+        __LOG(LOG_SRC_APP, LOG_LEVEL_INFO, "User action \n");
+        hal_led_pin_set(ONOFF_SERVER_0_LED, !hal_led_pin_get(ONOFF_SERVER_0_LED));
+        app_onoff_status_publish(&m_onoff_server_0);
+        
+    }
+}
+
 static void initialize(void)
 {
     __LOG_INIT(LOG_SRC_APP | LOG_SRC_ACCESS | LOG_SRC_BEARER, LOG_LEVEL_INFO, LOG_CALLBACK_DEFAULT);
@@ -312,8 +459,13 @@ static void initialize(void)
     ERROR_CHECK(app_timer_init());
     hal_leds_init();
 
+    //creat the unprovisioned_notify_timer
+    APP_ERROR_CHECK(app_timer_create(&unprovisioned_notify_timer, APP_TIMER_MODE_REPEATED, unprovisioned_notify_timer_handler));
+    APP_ERROR_CHECK(app_timer_create(&provisioned_complete_notify_timer, APP_TIMER_MODE_SINGLE_SHOT, provisioned_complete_notify_timer_handler));
+    APP_ERROR_CHECK(app_timer_create(&provisioned_fail_notify_timer, APP_TIMER_MODE_SINGLE_SHOT, provisioned_fail_notify_timer_handler));
 #if BUTTON_BOARD
     ERROR_CHECK(hal_buttons_init(button_event_handler));
+    APP_ERROR_CHECK(app_timer_create(&button_long_press_timer, APP_TIMER_MODE_REPEATED, button_long_press_handler)); 
 #endif
     uint32_t err_code = nrf_sdh_enable_request();
     APP_ERROR_CHECK(err_code);

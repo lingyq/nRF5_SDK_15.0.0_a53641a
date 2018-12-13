@@ -51,6 +51,7 @@
 #include "app_timer.h"
 #include "app_error.h"
 
+#include "kog_pin_define.h"
 /*****************************************************************************
  * Definitions
  *****************************************************************************/
@@ -107,6 +108,10 @@ bool hal_led_pin_get(uint32_t pin)
     return ((NRF_GPIO->OUT & (1 << pin)) == 0);
 }
 
+bool hal_led_pin_read(uint32_t pin)
+{
+    return (NRF_GPIO->IN & (1 << pin));
+}
 void hal_led_pin_set(uint32_t pin, bool value)
 {
     if (value)
@@ -151,11 +156,34 @@ void hal_led_blink_ms(uint32_t led_mask, uint32_t delay_ms, uint32_t blink_count
 
 void hal_leds_init(void)
 {
-    for (uint32_t i = LED_START; i <= LED_STOP; ++i)
-    {
-        NRF_GPIO->PIN_CNF[i] = LED_PIN_CONFIG;
-        NRF_GPIO->OUTSET = 1UL << i;
-    }
+    NRF_GPIO->PIN_CNF[LED1_R] = LED_PIN_CONFIG;
+    NRF_GPIO->OUTSET = 1UL << LED1_R;  //指示灯初始化都为高电平，因为低电平有效
+    NRF_GPIO->PIN_CNF[LED1_G] = LED_PIN_CONFIG;
+    NRF_GPIO->OUTSET = 1UL << LED1_G;
+
+    NRF_GPIO->PIN_CNF[LED2_R] = LED_PIN_CONFIG;
+    NRF_GPIO->OUTSET = 1UL << LED2_R;
+    NRF_GPIO->PIN_CNF[LED2_G] = LED_PIN_CONFIG;
+    NRF_GPIO->OUTSET = 1UL << LED2_G;
+
+    NRF_GPIO->PIN_CNF[LED3_R] = LED_PIN_CONFIG;
+    NRF_GPIO->OUTSET = 1UL << LED3_R;
+    NRF_GPIO->PIN_CNF[LED3_G] = LED_PIN_CONFIG;
+    NRF_GPIO->OUTSET = 1UL << LED3_G;
+
+    NRF_GPIO->PIN_CNF[LED4_R] = LED_PIN_CONFIG;
+    NRF_GPIO->OUTSET = 1UL << LED4_R;
+    NRF_GPIO->PIN_CNF[LED4_G] = LED_PIN_CONFIG;
+    NRF_GPIO->OUTSET = 1UL << LED4_G;
+
+    NRF_GPIO->PIN_CNF[RELAY_A] = LED_PIN_CONFIG;
+    NRF_GPIO->OUTCLR = 1UL << RELAY_A;
+    NRF_GPIO->PIN_CNF[RELAY_B] = LED_PIN_CONFIG;
+    NRF_GPIO->OUTCLR = 1UL << RELAY_B;  
+    NRF_GPIO->PIN_CNF[RELAY_C] = LED_PIN_CONFIG;
+    NRF_GPIO->OUTCLR = 1UL << RELAY_C;
+    NRF_GPIO->PIN_CNF[RELAY_D] = LED_PIN_CONFIG;
+    NRF_GPIO->OUTCLR = 1UL << RELAY_D;
 
     APP_ERROR_CHECK(app_timer_create(&m_blink_timer, APP_TIMER_MODE_REPEATED, led_timeout_handler));
 }

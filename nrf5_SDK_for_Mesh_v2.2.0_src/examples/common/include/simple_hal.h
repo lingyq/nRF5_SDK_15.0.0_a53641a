@@ -124,6 +124,6 @@ bool hal_led_pin_get(uint32_t pin);
 void hal_led_blink_ms(uint32_t pin_mask, uint32_t delay_ms, uint32_t blink_count);
 
 /** @} end of SIMPLE_HAL */
-
+bool hal_led_pin_read(uint32_t pin);
 
 #endif /* SIMPLE_HAL_H__ */
