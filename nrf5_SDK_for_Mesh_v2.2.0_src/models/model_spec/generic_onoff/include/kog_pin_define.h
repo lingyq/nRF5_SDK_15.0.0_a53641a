@@ -12,8 +12,8 @@
 #define LED3_R  30
 #define LED3_G  29
 
-#define LED4_R  7
-#define LED4_G  6
+#define LED4_R  16
+#define LED4_G  7
 
 #define RELAY_A 25
 #define RELAY_B 26
